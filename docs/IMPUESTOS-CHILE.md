@@ -79,4 +79,3 @@ Con el tratado Chile–EE.UU. (vigente desde dic-2023) y el formulario **W-8BEN*
 
 1. ¿Aplica a acciones **extranjeras** la exención del art. 57 LIR para trabajadores dependientes (ganancias de capital ≤ 30 UTM ≈ $2,1M)? Si aplica, con capital chico podrías pagar **cero** — el criterio del SII es restrictivo y hay que confirmarlo.
 2. ¿Puedo **netear pérdidas** de fuente extranjera contra ganancias del mismo año (arts. 41 A/41 B)?
-3. Si terminara usando un broker que ofrece CFDs en vez de acciones reales: ¿tratamiento tributario? (motivo suficiente para preferir acciones reales).

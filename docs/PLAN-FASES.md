@@ -97,30 +97,30 @@ Lo manual que **nunca** se va a poder eliminar (y está bien que así sea): abri
 
 ---
 
-## Fase 5 — Dinero real de matrícula (semanas 18–30)
+## Fase 5 — Dinero real vía Racional, ejecución manual (semanas 18–30)
 
-**Objetivo:** medir lo que el paper no puede: slippage real, latencia real, y tu estómago. USD 200–500. **El objetivo NO es ganar plata.**
+**Objetivo:** operar con dinero real usando tu cuenta Racional existente, midiendo lo que el paper no puede: slippage real y tu estómago. USD 200–500. **El objetivo NO es ganar plata.** Cero riesgo de términos de servicio: el agente no toca la cuenta de Racional — te dice qué hacer y tú lo haces en la app.
 
-- Broker live según lo que respondieron Alpaca/eToro/IBKR (el adapter hace el cambio trivial). Verificaciones a correr en paralelo desde la fase 0 — son la única dependencia externa lenta:
-  - [ ] Alpaca: ¿cuenta live para residente chileno?
-  - [ ] eToro: ¿API keys desde Chile? ¿acciones reales o CFDs?
-  - [ ] IBKR: iniciar solicitud de cuenta cash ya (demora días)
-  - [ ] Contador: compensación de pérdidas extranjeras + tratamiento CFDs
+- Adapter de producción: `ManualTelegramAdapter`. El ciclo: el agente decide → te llega a Telegram "COMPRAR NVDA, 3% del portafolio, tesis X, precio de referencia $Y" con botones → tú ejecutas en la app de Racional en 20 segundos → tocas "Ejecutado a $Z" → el agente registra el fill y calcula slippage decisión→ejecución (incluida tu demora).
+- Broker de pruebas sigue siendo Alpaca paper en paralelo (misma señal a ambos adapters: sirve para comparar tu ejecución manual contra la ejecución instantánea simulada).
 - Tax ledger FIFO activo desde la **primera** orden real: cada venta genera su lote tributario con FX del día.
-- Autonomía calibrada: ventas defensivas y rebalanceo 100% automáticos; posiciones nuevas requieren un toque en un botón inline de Telegram (aprobar/rechazar en 5 segundos). Ese botón es temporal y medible: cuando llevas N semanas aprobando todo sin excepción, se elimina.
-- Límite que ningún bug puede saltarse: en la cuenta del broker solo vive el capital autorizado.
+- Verificaciones en paralelo (preparan la fase 6, no bloquean esta):
+  - [ ] IBKR: iniciar solicitud de cuenta cash (demora días/semanas; es la puerta a la autonomía)
+  - [ ] Alpaca: ¿cuenta live para residente chileno? (puerta alternativa)
+  - [ ] Contador: exención art. 57 y compensación de pérdidas extranjeras
+- Límite que ningún bug puede saltarse: en Racional solo vive el capital autorizado para el agente.
 
-**Lo que VES al terminar:** tu primera orden real ejecutada por el agente, y un reporte de calidad de ejecución: precio de decisión vs. precio de fill, slippage acumulado, tasa de fallos.
+**Lo que VES al terminar:** tu primera orden real guiada por el agente, y un reporte de calidad de ejecución: precio de decisión vs. tu fill real, slippage acumulado, señales no ejecutadas.
 
-**Criterios de salida:** slippage promedio <0,3% por operación · fallos de ejecución <1% · tú durmiendo tranquilo (en serio: si revisas el portafolio >3 veces al día, no se avanza).
+**Criterios de salida:** slippage promedio decisión→fill <0,5% (manual incluye tu demora) · señales ignoradas sin razón <5% · tú durmiendo tranquilo (en serio: si revisas el portafolio >3 veces al día, no se avanza).
 
 ---
 
-## Fase 6 — Autonomía supervisada con capital significativo (semana 30+)
+## Fase 6 — Autonomía: se elimina la ejecución manual (semana 30+)
 
-**Objetivo:** el estado final realista. Solo si las fases anteriores pasaron **con sus criterios originales**.
+**Objetivo:** el estado final realista. Solo si las fases anteriores pasaron **con sus criterios originales**. Racional no tiene API, así que la autonomía de ejecución se logra **cambiando el adapter** a un broker con API — IBKR (cuenta ya aprobada desde la fase 5) o Alpaca live si confirmaron Chile. Es una línea de configuración: todo lo demás (señales, riesgo, impuestos, reportes) ya venía funcionando igual.
 
-- Capital del orden de USD 5.000+ (donde los costos fijos caen bajo 0,5% anual).
+- Capital del orden de USD 5.000+ (donde los costos fijos caen bajo 0,5% anual). El capital en Racional se puede mantener o migrar — decisión tuya, el agente opera donde esté el adapter.
 - Automático sin preguntar: ventas defensivas, rebalanceo dentro de límites, posiciones nuevas dentro de los parámetros del Risk Engine, reportes, reconciliación, y el borrador de la DJ 1929 cada enero.
 - Requiere tu aprobación (por diseño, para siempre): cambios de parámetros de riesgo, operaciones >5% del portafolio, aportes/retiros de capital.
 - Evaluación mensual automática del sistema con reporte: ¿los pesos siguen sirviendo? ¿el slippage se comió el edge?
@@ -139,6 +139,6 @@ Lo manual que **nunca** se va a poder eliminar (y está bien que así sea): abri
 | 1 | — | — | sistema (datos) | constructor |
 | 2 | backtest | — | sistema | analista |
 | 3 | sistema (propone) | nadie aún | sistema | revisor diario |
-| 4 | sistema | sistema (paper) | sistema | espectador con botón rojo |
-| 5 | sistema | sistema (real, con un botón temporal) | sistema | supervisor decreciente |
-| 6 | sistema | sistema (dentro de límites) | sistema | 1 mensaje/día, 1 reporte/mes |
+| 4 | sistema | sistema (Alpaca paper) | sistema | espectador con botón rojo |
+| 5 | sistema | **tú, en la app de Racional** (2 toques guiados) | sistema | ejecutor de 20 segundos |
+| 6 | sistema | sistema (broker con API, dentro de límites) | sistema | 1 mensaje/día, 1 reporte/mes |

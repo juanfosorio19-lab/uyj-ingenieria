@@ -22,8 +22,34 @@ Sistema automatizado de inversión en acciones USA: datos de mercado → scoring
 
 ## Stack
 
-Python + FastAPI · Postgres (Supabase/Docker) · n8n (orquestación) · Alpaca paper (fase 0–4) · adapter de broker intercambiable (Alpaca/eToro/IBKR/manual) · Claude API (análisis) · Telegram (alertas y aprobaciones).
+Python + FastAPI · Postgres (Docker) · n8n (orquestación) · Telegram (alertas y ejecución guiada) · Claude API (análisis) · adapter de broker intercambiable.
+
+**Ruta de brokers decidida:** Alpaca paper para pruebas (fases 0–4) → **Racional con ejecución manual guiada por Telegram** en producción (fase 5) → autonomía cambiando el adapter a un broker con API, IBKR o Alpaca live (fase 6).
+
+## Cómo correr (Fase 0)
+
+```bash
+cp .env.example .env        # opcional: agrega tu token de Telegram
+docker compose up --build   # levanta Postgres + API + n8n (+ bot si hay token)
+
+curl localhost:8000/status  # caja, posiciones, kill switch, mercado abierto/cerrado
+```
+
+API en `localhost:8000` (docs interactivas en `/docs`), n8n en `localhost:5678`.
+
+**Bot de Telegram:** crea un bot con [@BotFather](https://t.me/BotFather), pega el token en `.env` (`TELEGRAM_BOT_TOKEN=...`) y reinicia el compose. Comandos: `/status`, `/buy AAPL 10 230.50`, `/sell AAPL 5`, `/kill`, `/resume`. Con `TELEGRAM_CHAT_ID` definido, el bot ignora a cualquier otra persona.
+
+**Sin Docker** (desarrollo local):
+
+```bash
+python3.12 -m venv .venv && .venv/bin/pip install -e ".[dev]"
+.venv/bin/pytest                                   # correr los tests
+.venv/bin/uvicorn app.main:app --reload            # API con SQLite local
+.venv/bin/python -m app.telegram_bot               # bot
+```
 
 ## Estado
 
-**Fase 0 — Reset y esqueleto.** Este commit es el punto de partida: repo limpio + plan.
+**Fase 0 construida** ✅ — esqueleto vivo: Postgres + FastAPI + bot de Telegram + `PaperAdapter` con idempotencia, kill switch y lotes tributarios FIFO desde la primera compra simulada. 10 tests en verde + CI en GitHub Actions.
+
+Pendiente para cerrar la fase (lo haces tú, ~10 min): correr `docker compose up` en tu máquina y probar `/status` y `/buy` desde tu Telegram. Siguiente: **Fase 1 — datos que llegan solos**.
