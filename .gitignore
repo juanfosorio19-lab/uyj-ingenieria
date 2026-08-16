@@ -9,3 +9,5 @@ node_modules/
 data/
 logs/
 *.sqlite
+*.egg-info/
+.venv/
