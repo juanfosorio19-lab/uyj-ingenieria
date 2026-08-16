@@ -7,6 +7,8 @@ Principios que gobiernan el plan:
 3. **La IA propone, las reglas ejecutan.** El LLM nunca tiene credenciales ni herramienta de ejecución. Devuelve JSON; un Risk Engine determinista valida contra límites duros y un Order Service idempotente ejecuta. Las 5 reglas de salida (stop duro, invalidador de tesis, horizonte, concentración, mantener) no consultan a la IA jamás.
 4. **Criterios de salida cuantitativos.** No se pasa de fase "porque ya toca". Si no se cumplen, se ajusta la estrategia, no el criterio.
 
+**Horario de operación:** el agente solo trabaja cuando el mercado trabaja. NYSE opera lunes a viernes 9:30–16:00 hora de Nueva York (≈10:30–17:00 o 11:30–18:00 hora de Chile según horario de verano de cada país). Los crons de n8n se acotan a eso: monitoreo cada 15 min **solo con mercado abierto**, análisis LLM una vez **después del cierre** (vía Batch API, sin apuro), y nada corre de noche ni fines de semana ni feriados de mercado (calendario de feriados NYSE en la config). El VPS queda encendido 24/7 igual (cuesta lo mismo), pero el sistema consume datos y LLM solo en ventana de mercado.
+
 Lo manual que **nunca** se va a poder eliminar (y está bien que así sea): abrir cuenta de broker (KYC), fondear/retirar capital, firmar el F22 y la DJ 1929 ante el SII, y aprobar cambios a los parámetros de riesgo.
 
 ---
