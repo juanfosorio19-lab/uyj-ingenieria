@@ -1,10 +1,14 @@
 from functools import lru_cache
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """Configuración por variables de entorno (ver .env.example)."""
+    """Configuración por variables de entorno o archivo .env (ver .env.example)."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", extra="ignore"
+    )
 
     database_url: str = "sqlite:///./data/agent.db"
     telegram_bot_token: str = ""

@@ -39,7 +39,20 @@ API en `localhost:8000` (docs interactivas en `/docs`), n8n en `localhost:5678`.
 
 **Bot de Telegram:** crea un bot con [@BotFather](https://t.me/BotFather), pega el token en `.env` (`TELEGRAM_BOT_TOKEN=...`) y reinicia el compose. Comandos: `/status`, `/buy AAPL 10 230.50`, `/sell AAPL 5`, `/kill`, `/resume`. Con `TELEGRAM_CHAT_ID` definido, el bot ignora a cualquier otra persona.
 
-**Sin Docker** (desarrollo local):
+**Sin Docker** (desarrollo local, usa SQLite en `./data/agent.db` y lee el `.env` automáticamente):
+
+Windows (PowerShell):
+
+```powershell
+winget install -e --id Python.Python.3.12   # si no tienes Python; luego reabre la terminal
+py -3.12 -m venv .venv
+.venv\Scripts\python -m pip install -e ".[dev]"
+.venv\Scripts\python -m pytest               # correr los tests
+.venv\Scripts\python -m uvicorn app.main:app # API en localhost:8000
+.venv\Scripts\python -m app.telegram_bot     # bot (en otra terminal)
+```
+
+Mac/Linux:
 
 ```bash
 python3.12 -m venv .venv && .venv/bin/pip install -e ".[dev]"
