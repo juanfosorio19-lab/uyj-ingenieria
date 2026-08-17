@@ -81,10 +81,20 @@ python3.12 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 
 Genera `reports\backtest.html` (curvas de equity vs SPY, 4 ventanas, veredicto) y lo envía al chat.
 
+### Fase 3: analista IA + motor de riesgo
+
+```powershell
+.venv\Scripts\python -m app.jobs propose   # tesis del día + veredicto del Risk Engine a Telegram
+```
+
+Con `ANTHROPIC_API_KEY` en el `.env`, la tesis la escribe Claude; sin key, un analista de reglas (momentum) — el circuito es el mismo. La propuesta también sale sola dentro del ciclo `daily`.
+
 ## Estado
 
 **Fase 0 cerrada** ✅ — validada en el PC de Juan: API + bot de Telegram respondiendo, kill switch probado.
 
 **Fase 1 en observación** ⏳ — ingesta + FX + reporte diario construidos y funcionando; scheduler activo en el PC. Criterio: **7 días corridos de reportes sin intervención** (corriendo desde el 17-08-2026).
 
-**Fase 2 construida (provisoria)** ⏳ — scoring de momentum 6m−1m con hipótesis declarada, backtest walk-forward sin look-ahead con costos explícitos (0,2% por lado), 4 ventanas vs SPY, reporte HTML con veredicto enviado a Telegram. 24 tests en verde. **Provisoria porque falta**: universo con constituyentes históricos (hoy hay survivorship bias) y factores fundamentales con SEC EDGAR point-in-time. El criterio de salida (≥3 de 4 ventanas batiendo a SPY después de costos) solo se evalúa en firme con eso cargado.
+**Fase 2 construida (provisoria)** ⏳ — scoring de momentum 6m−1m con hipótesis declarada, backtest walk-forward sin look-ahead con costos explícitos (0,2% por lado), 4 ventanas vs SPY, reporte HTML con veredicto enviado a Telegram. **Provisoria porque falta**: universo con constituyentes históricos (hoy hay survivorship bias) y factores fundamentales con SEC EDGAR point-in-time. El criterio de salida (≥3 de 4 ventanas batiendo a SPY después de costos) solo se evalúa en firme con eso cargado.
+
+**Fase 3 construida** ⏳ — analista con tesis falsables (Claude vía `ANTHROPIC_API_KEY`, o analista de reglas sin key), prompt construido por allowlist (los secretos no pueden llegar al modelo — con test que lo garantiza), validación Pydantic (JSON inválido o posición >10% → rechazado y auditado, jamás usado), auditoría completa en `ai_decisions` (prompt_hash + model_version), y Risk Engine determinista de entrada (concentración, caja, cupos, kill switch, confianza). La propuesta del día llega a Telegram con el veredicto. 32 tests en verde. **La IA no ejecuta: propone. La ejecución automática llega en la fase 4.**

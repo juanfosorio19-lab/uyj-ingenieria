@@ -75,10 +75,48 @@ def run_backtest_job() -> str:
     return text
 
 
+def run_propose() -> str:
+    """Fase 3: el analista propone, el Risk Engine veredicta, Telegram informa."""
+    from app.llm.analyst import analyze
+    from app.report import send_telegram_message
+    from app.risk import evaluate_from_db
+
+    sf = _session_factory()
+    outcome = analyze(sf)
+    if outcome.status == "no_data":
+        msg = "🤖 Sin datos suficientes para proponer (corre la ingesta primero)."
+    elif outcome.status == "rejected_schema":
+        msg = "🤖 Propuesta RECHAZADA por formato inválido del analista (auditada, no ejecutada)."
+    elif outcome.status == "error":
+        msg = "🤖 El analista falló hoy; queda registrado. Sin propuesta."
+    else:
+        p = outcome.proposal
+        verdict = evaluate_from_db(sf, p)
+        if p.action == "hold":
+            msg = f"🤖 Propuesta del día: MANTENER.\nRazón: {p.thesis}"
+        else:
+            invalidators = "; ".join(
+                f"{i.metric} {i.op} {i.value:g}" for i in p.invalidators
+            )
+            msg = (
+                f"🤖 Propuesta del día: COMPRAR {p.symbol} "
+                f"({p.max_position_pct:.0%} del portafolio)\n"
+                f"Tesis: {p.thesis}\n"
+                f"Invalidadores: {invalidators}\n"
+                f"Horizonte: {p.target_horizon_days} días · Confianza: {p.confidence:.2f}\n"
+                f"🛡️ Risk Engine: {verdict.summary}\n"
+                f"(fase 3: solo propone — la ejecución llega en la fase 4)"
+            )
+    send_telegram_message(msg)
+    log.info("Propuesta del día enviada")
+    return msg
+
+
 def run_daily() -> None:
     ingest_result = run_ingest()
     run_fx()
     run_report()
+    run_propose()
     log.info("Ciclo diario completo (%s)", ingest_result)
 
 
@@ -89,6 +127,7 @@ def main() -> None:
         "report": run_report,
         "daily": run_daily,
         "backtest": run_backtest_job,
+        "propose": run_propose,
     }
     name = sys.argv[1] if len(sys.argv) > 1 else ""
     job = commands.get(name)

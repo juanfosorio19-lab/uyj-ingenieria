@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     telegram_chat_id: str = ""  # si se define, el bot ignora cualquier otro chat
     broker: str = "paper"
     starting_cash_usd: str = "10000"
+    anthropic_api_key: str = ""  # sin key, el analista usa reglas (sin IA)
+    llm_model: str = "claude-sonnet-5"  # tesis de entrada; ver docs/COSTOS.md
 
 
 @lru_cache
