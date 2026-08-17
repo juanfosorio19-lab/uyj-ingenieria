@@ -18,10 +18,18 @@ from app.db import get_engine, init_db, make_session_factory
 
 
 def _authorized(update: Update) -> bool:
-    allowed = get_settings().telegram_chat_id
+    allowed = get_settings().telegram_chat_id.strip().strip('"').strip("'")
     if not allowed:
         return True
-    return update.effective_chat is not None and str(update.effective_chat.id) == allowed
+    chat = update.effective_chat
+    if chat is not None and str(chat.id) == allowed:
+        return True
+    # Autodiagnóstico: si el id configurado no coincide, se ve aquí cuál es el real.
+    print(
+        f"Mensaje IGNORADO: viene del chat id={chat.id if chat else '?'} "
+        f"pero TELEGRAM_CHAT_ID={allowed!r}. Si ese chat eres tú, corrige el .env."
+    )
+    return False
 
 
 def _build_handlers(adapter: PaperAdapter, session_factory):
@@ -102,7 +110,14 @@ def _build_handlers(adapter: PaperAdapter, session_factory):
             "/resume [razón] — rehabilitar órdenes"
         )
 
+    async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        if not _authorized(update):
+            return
+        await update.message.reply_text("Agente de trading (fase 0, paper). Comandos:")
+        await help_cmd(update, context)
+
     return {
+        "start": start,
         "status": status,
         "buy": buy,
         "sell": sell,
