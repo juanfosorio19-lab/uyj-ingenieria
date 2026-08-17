@@ -73,10 +73,18 @@ python3.12 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 
 (En Mac/Linux: `.venv/bin/python -m app.jobs daily`.) Con Docker, el servicio `scheduler` del compose hace esto solo.
 
+### Fase 2: backtest walk-forward
+
+```powershell
+.venv\Scripts\python -m app.jobs backtest  # corre el backtest y manda el HTML a tu Telegram
+```
+
+Genera `reports\backtest.html` (curvas de equity vs SPY, 4 ventanas, veredicto) y lo envía al chat.
+
 ## Estado
 
 **Fase 0 cerrada** ✅ — validada en el PC de Juan: API + bot de Telegram respondiendo, kill switch probado.
 
-**Fase 1 construida** ⏳ — ingesta OHLCV incremental e idempotente (yfinance, 50 símbolos + SPY), universo con vigencias point-in-time, dólar observado (mindicador.cl) para el ledger tributario, reporte diario con top movers/benchmark/salud de ingesta enviado a Telegram, y scheduler acotado a días hábiles post-cierre NYSE. 17 tests en verde.
+**Fase 1 en observación** ⏳ — ingesta + FX + reporte diario construidos y funcionando; scheduler activo en el PC. Criterio: **7 días corridos de reportes sin intervención** (corriendo desde el 17-08-2026).
 
-Criterio de salida de la fase 1: **7 días corridos de ingesta sin intervención y sin huecos silenciosos.** Pendiente: correr `python -m app.jobs daily` la primera vez y dejar el scheduler activo.
+**Fase 2 construida (provisoria)** ⏳ — scoring de momentum 6m−1m con hipótesis declarada, backtest walk-forward sin look-ahead con costos explícitos (0,2% por lado), 4 ventanas vs SPY, reporte HTML con veredicto enviado a Telegram. 24 tests en verde. **Provisoria porque falta**: universo con constituyentes históricos (hoy hay survivorship bias) y factores fundamentales con SEC EDGAR point-in-time. El criterio de salida (≥3 de 4 ventanas batiendo a SPY después de costos) solo se evalúa en firme con eso cargado.

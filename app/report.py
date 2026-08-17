@@ -82,6 +82,25 @@ def build_daily_report(session_factory: sessionmaker[Session]) -> str:
     return "\n".join(lines)
 
 
+def send_telegram_document(path, caption: str = "") -> bool:
+    """Envía un archivo (p. ej. el HTML del backtest) al chat configurado."""
+    settings = get_settings()
+    token = settings.telegram_bot_token
+    chat_id = settings.telegram_chat_id.strip().strip('"').strip("'")
+    if not token or not chat_id:
+        print(f"(Documento no enviado, falta config de Telegram: {path})")
+        return False
+    with open(path, "rb") as fh:
+        response = httpx.post(
+            f"https://api.telegram.org/bot{token}/sendDocument",
+            data={"chat_id": chat_id, "caption": caption[:1000]},
+            files={"document": fh},
+            timeout=60,
+        )
+    response.raise_for_status()
+    return True
+
+
 def send_telegram_message(text: str) -> bool:
     """Envía por la API HTTP del bot. Sin token/chat configurados, imprime y sigue."""
     settings = get_settings()

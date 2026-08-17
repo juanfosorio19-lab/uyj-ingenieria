@@ -11,3 +11,4 @@ logs/
 *.sqlite
 *.egg-info/
 .venv/
+/reports/

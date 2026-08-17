@@ -50,6 +50,31 @@ def run_report() -> str:
     return text
 
 
+def run_backtest_job() -> str:
+    """Fase 2: corre el backtest walk-forward y manda el reporte a Telegram."""
+    from app.backtest import load_close_matrix, run_backtest
+    from app.report import send_telegram_document, send_telegram_message
+    from app.report_backtest import summary_text, write_report
+
+    sf = _session_factory()
+    closes = load_close_matrix(sf)
+    if closes.empty:
+        msg = "No hay precios en la base. Corre primero: python -m app.jobs ingest"
+        log.error(msg)
+        return msg
+    try:
+        result = run_backtest(closes)
+    except ValueError as exc:
+        log.error("Backtest no ejecutable: %s", exc)
+        return str(exc)
+    path = write_report(result)
+    text = summary_text(result)
+    send_telegram_message(text)
+    send_telegram_document(path, caption="Reporte completo del backtest")
+    log.info("Backtest listo: %s (reporte en %s)", "PASA" if result.passed else "NO pasa", path)
+    return text
+
+
 def run_daily() -> None:
     ingest_result = run_ingest()
     run_fx()
@@ -58,7 +83,13 @@ def run_daily() -> None:
 
 
 def main() -> None:
-    commands = {"ingest": run_ingest, "fx": run_fx, "report": run_report, "daily": run_daily}
+    commands = {
+        "ingest": run_ingest,
+        "fx": run_fx,
+        "report": run_report,
+        "daily": run_daily,
+        "backtest": run_backtest_job,
+    }
     name = sys.argv[1] if len(sys.argv) > 1 else ""
     job = commands.get(name)
     if job is None:
