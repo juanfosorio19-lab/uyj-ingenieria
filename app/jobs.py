@@ -96,7 +96,7 @@ def run_propose() -> str:
             msg = f"🤖 Propuesta del día: MANTENER.\nRazón: {p.thesis}"
         else:
             invalidators = "; ".join(
-                f"{i.metric} {i.op} {i.value:g}" for i in p.invalidators
+                f"{i.metric} {i.op} {i.value}" for i in p.invalidators
             )
             msg = (
                 f"🤖 Propuesta del día: COMPRAR {p.symbol} "
@@ -112,11 +112,30 @@ def run_propose() -> str:
     return msg
 
 
+def run_trade() -> str:
+    """Fase 4: decide y EJECUTA en el broker configurado (con reconciliación)."""
+    from app.brokers.factory import make_adapter
+    from app.report import send_telegram_message
+    from app.trade import trade_once
+
+    sf = _session_factory()
+    adapter = make_adapter(sf)
+    msg = trade_once(sf, adapter)
+    send_telegram_message(msg)
+    log.info("Ciclo de trading (%s) completado", adapter.name)
+    return msg
+
+
 def run_daily() -> None:
+    from app.config import get_settings
+
     ingest_result = run_ingest()
     run_fx()
     run_report()
-    run_propose()
+    if get_settings().execution_enabled:
+        run_trade()  # fase 4: propone Y ejecuta
+    else:
+        run_propose()  # fase 3: solo propone
     log.info("Ciclo diario completo (%s)", ingest_result)
 
 
@@ -128,6 +147,7 @@ def main() -> None:
         "daily": run_daily,
         "backtest": run_backtest_job,
         "propose": run_propose,
+        "trade": run_trade,
     }
     name = sys.argv[1] if len(sys.argv) > 1 else ""
     job = commands.get(name)

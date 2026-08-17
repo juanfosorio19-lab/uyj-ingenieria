@@ -96,12 +96,30 @@ def build_context(session_factory: sessionmaker[Session]) -> AllowedContext | No
 # ------------------------------------------------------------------ schema --
 
 
+def extract_json(raw: str) -> str:
+    """Aísla el objeto JSON aunque venga envuelto en ```json ...``` o con texto.
+
+    La validación estricta sigue después; esto solo quita el envoltorio.
+    """
+    start = raw.find("{")
+    end = raw.rfind("}")
+    if start != -1 and end > start:
+        return raw[start : end + 1]
+    return raw
+
+
 class Invalidator(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     metric: str = Field(min_length=2, max_length=40)
     op: Literal["<", ">", "<=", ">=", "=="]
-    value: float
+    value: float | str
+
+    @model_validator(mode="after")
+    def _string_values_only_for_equality(self):
+        if isinstance(self.value, str) and self.op != "==":
+            raise ValueError("valores de texto solo admiten el operador ==")
+        return self
 
 
 class ThesisProposal(BaseModel):
@@ -109,7 +127,7 @@ class ThesisProposal(BaseModel):
 
     action: Literal["buy", "hold"]
     symbol: str = Field(min_length=1, max_length=12)
-    thesis: str = Field(min_length=10, max_length=1000)
+    thesis: str = Field(min_length=10, max_length=2000)
     invalidators: list[Invalidator] = Field(default_factory=list, max_length=6)
     target_horizon_days: int = Field(ge=5, le=365)
     max_position_pct: float = Field(gt=0, le=0.10)
@@ -247,7 +265,7 @@ def analyze(
         return AnalysisOutcome(status="error")
 
     try:
-        proposal = ThesisProposal.model_validate_json(raw)
+        proposal = ThesisProposal.model_validate_json(extract_json(raw))
     except ValidationError as exc:
         log.warning("Propuesta rechazada por esquema: %s", exc.error_count())
         _audit(

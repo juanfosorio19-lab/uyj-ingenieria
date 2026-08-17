@@ -78,10 +78,10 @@ def evaluate(
 
 
 def evaluate_from_db(
-    session_factory: sessionmaker[Session], proposal: ThesisProposal
+    session_factory: sessionmaker[Session], proposal: ThesisProposal, adapter=None
 ) -> RiskVerdict:
     """Arma los insumos desde el estado real y llama a la función pura."""
-    adapter = PaperAdapter(session_factory)
+    adapter = adapter or PaperAdapter(session_factory)
     cash = float(adapter.get_cash())
     positions = {
         p.symbol: float(Decimal(p.qty) * Decimal(p.avg_price_usd))

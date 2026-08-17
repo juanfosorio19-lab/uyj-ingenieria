@@ -44,6 +44,10 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ALPACA_API_KEY: ${ALPACA_API_KEY:-}
+      ALPACA_SECRET_KEY: ${ALPACA_SECRET_KEY:-}
+      BROKER: ${BROKER:-paper}
+      EXECUTION_ENABLED: ${EXECUTION_ENABLED:-false}
     restart: unless-stopped
     depends_on:
       postgres:
