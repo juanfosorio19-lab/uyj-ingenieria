@@ -200,6 +200,34 @@ class KillSwitchEvent(Base):
     reason: Mapped[str] = mapped_column(Text, default="")
 
 
+class PortfolioSnapshot(Base):
+    """Foto diaria del portafolio: la curva de equity del dashboard."""
+
+    __tablename__ = "portfolio_snapshots"
+
+    date: Mapped[date] = mapped_column(Date, primary_key=True)
+    cash_usd: Mapped[Decimal] = mapped_column(Numeric(18, 2))
+    positions_value_usd: Mapped[Decimal] = mapped_column(Numeric(18, 2))
+    equity_usd: Mapped[Decimal] = mapped_column(Numeric(18, 2))
+
+
+class Fundamental(Base):
+    """Fundamentales SEC EDGAR con fecha de PUBLICACIÓN (point-in-time)."""
+
+    __tablename__ = "fundamentals"
+    __table_args__ = (
+        UniqueConstraint("symbol", "metric", "period_end", "filed", name="uq_fund_row"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    symbol: Mapped[str] = mapped_column(String(12), index=True)
+    metric: Mapped[str] = mapped_column(String(32))
+    period_end: Mapped[date] = mapped_column(Date)
+    value: Mapped[Decimal] = mapped_column(Numeric(20, 2))
+    filed: Mapped[date] = mapped_column(Date)  # desde esta fecha el dato EXISTE
+    form: Mapped[str] = mapped_column(String(8), default="")
+
+
 class SystemFlag(Base):
     __tablename__ = "system_flags"
 

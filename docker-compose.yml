@@ -53,6 +53,21 @@ services:
       postgres:
         condition: service_healthy
 
+  monitor:
+    build: .
+    command: python -m app.monitor
+    environment:
+      DATABASE_URL: postgresql+psycopg://agent:${POSTGRES_PASSWORD:-agent}@postgres:5432/agent
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      ALPACA_API_KEY: ${ALPACA_API_KEY:-}
+      ALPACA_SECRET_KEY: ${ALPACA_SECRET_KEY:-}
+      BROKER: ${BROKER:-paper}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   n8n:
     image: n8nio/n8n:latest
     ports:

@@ -6,20 +6,22 @@ nunca opera sobre estado asumido.
 """
 
 import logging
+from datetime import UTC, datetime
 from decimal import ROUND_DOWN, Decimal
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.brokers.base import OrderRejected
-from app.controls import set_orders_enabled
+from app.controls import heartbeat_age_seconds, set_orders_enabled
 from app.llm.analyst import AnalystClient, analyze
-from app.models import Position, PriceBar, Reconciliation
+from app.models import PortfolioSnapshot, Position, PriceBar, Reconciliation
 from app.risk import evaluate_from_db
 
 log = logging.getLogger(__name__)
 
 QTY_TOLERANCE = 1e-4
+DMS_MAX_AGE_SECONDS = 45 * 60  # el monitor late cada 15 min; 45 min sin latido = caído
 
 
 def reconcile(session_factory: sessionmaker[Session], adapter) -> bool:
@@ -89,6 +91,28 @@ def _last_data_date(session_factory) -> str:
         return str(s.scalar(select(func.max(PriceBar.date))))
 
 
+def snapshot_portfolio(session_factory: sessionmaker[Session], adapter) -> None:
+    """Foto diaria de caja/posiciones/equity — la curva del dashboard."""
+    cash = Decimal(adapter.get_cash())
+    positions_value = sum(
+        (
+            Decimal(p.qty) * Decimal(p.current_price_usd or p.avg_price_usd)
+            for p in adapter.get_positions()
+        ),
+        Decimal(0),
+    )
+    today = datetime.now(UTC).date()
+    with session_factory() as s:
+        row = s.get(PortfolioSnapshot, today)
+        if row is None:
+            row = PortfolioSnapshot(date=today, cash_usd=0, positions_value_usd=0, equity_usd=0)
+            s.add(row)
+        row.cash_usd = cash
+        row.positions_value_usd = positions_value
+        row.equity_usd = cash + positions_value
+        s.commit()
+
+
 def trade_once(
     session_factory: sessionmaker[Session], adapter, client: AnalystClient | None = None
 ) -> str:
@@ -120,6 +144,19 @@ def trade_once(
     )
     if not verdict.approved:
         return header + "\n→ NO ejecutada."
+
+    # Dead man's switch: si el monitor se armó alguna vez y dejó de latir,
+    # no se abren posiciones nuevas (y se apaga el flag global).
+    age = heartbeat_age_seconds(session_factory, key="monitor")
+    if age is not None and age > DMS_MAX_AGE_SECONDS:
+        set_orders_enabled(
+            session_factory, False, actor="dead-man-switch",
+            reason=f"monitor sin latido hace {age / 60:.0f} min",
+        )
+        return header + (
+            f"\n🛑 Dead man's switch: el monitor lleva {age / 60:.0f} min sin latir. "
+            "Órdenes deshabilitadas; revisa el proceso y usa /resume."
+        )
 
     price = _last_close(session_factory, proposal.symbol)
     if price is None or price <= 0:

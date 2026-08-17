@@ -15,6 +15,7 @@ class PositionInfo:
     symbol: str
     qty: Decimal
     avg_price_usd: Decimal
+    current_price_usd: Decimal | None = None  # brokers que lo informan (Alpaca)
 
 
 @dataclass

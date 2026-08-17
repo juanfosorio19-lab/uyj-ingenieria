@@ -4,6 +4,7 @@ from decimal import Decimal
 from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import Engine
 
@@ -35,6 +36,12 @@ def create_app(engine: Engine | None = None) -> FastAPI:
     @app.get("/health")
     def health() -> dict:
         return {"status": "ok"}
+
+    @app.get("/", response_class=HTMLResponse)
+    def dashboard(request: Request) -> str:
+        from app.dashboard import build_dashboard_html
+
+        return build_dashboard_html(request.app.state.session_factory)
 
     @app.get("/status")
     def status(request: Request) -> dict:

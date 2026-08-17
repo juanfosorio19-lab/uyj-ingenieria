@@ -88,7 +88,12 @@ def load_close_matrix(session_factory: sessionmaker[Session]) -> pd.DataFrame:
     return frame.pivot_table(index="date", columns="symbol", values="close").sort_index()
 
 
-def run_backtest(closes: pd.DataFrame, config: BacktestConfig | None = None) -> BacktestResult:
+def run_backtest(
+    closes: pd.DataFrame,
+    config: BacktestConfig | None = None,
+    eligible: pd.DataFrame | None = None,
+) -> BacktestResult:
+    """`eligible`: máscara booleana fechas × símbolos (point-in-time). None = todos."""
     config = config or BacktestConfig()
     closes = closes.sort_index()
     if config.benchmark not in closes.columns:
@@ -118,6 +123,9 @@ def run_backtest(closes: pd.DataFrame, config: BacktestConfig | None = None) -> 
         if first_day_of_month or i == start_i:
             # Decide con datos hasta AYER (i-1); opera con el retorno de HOY.
             scores = momentum_scores(closes[candidates], at=i - 1)
+            if eligible is not None and not scores.empty:
+                allowed = eligible.iloc[i - 1]
+                scores = scores[[sym for sym in scores.index if bool(allowed.get(sym, False))]]
             if not scores.empty:
                 top = scores.nlargest(config.top_n).index
                 new_weights = pd.Series(0.0, index=candidates)

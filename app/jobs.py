@@ -63,8 +63,13 @@ def run_backtest_job() -> str:
         msg = "No hay precios en la base. Corre primero: python -m app.jobs ingest"
         log.error(msg)
         return msg
+    from app.eligibility import build_eligibility
+
+    eligible = build_eligibility(sf, closes)
+    if eligible is not None:
+        log.info("Backtest con máscara point-in-time (universo/fundamentales cargados)")
     try:
-        result = run_backtest(closes)
+        result = run_backtest(closes, eligible=eligible)
     except ValueError as exc:
         log.error("Backtest no ejecutable: %s", exc)
         return str(exc)
@@ -127,16 +132,63 @@ def run_trade() -> str:
     return msg
 
 
+def run_exits() -> str:
+    """Evalúa y ejecuta las salidas defensivas (también lo hace el monitor)."""
+    from app.brokers.factory import make_adapter
+    from app.exits import check_and_execute_exits
+    from app.report import send_telegram_message
+
+    sf = _session_factory()
+    adapter = make_adapter(sf)
+    messages = check_and_execute_exits(sf, adapter)
+    for message in messages:
+        send_telegram_message(message)
+    result = f"{len(messages)} salidas defensivas" if messages else "Sin salidas que ejecutar"
+    log.info(result)
+    return result
+
+
+def run_fundamentals() -> str:
+    """Descarga fundamentales SEC EDGAR (con fecha de publicación) del universo."""
+    from app.data.edgar import ingest_fundamentals
+
+    sf = _session_factory()
+    symbols = [s for s in ensure_universe(sf) if s != "SPY"]
+    log.info("Bajando fundamentales de EDGAR para %d símbolos (varios minutos)...", len(symbols))
+    msg = ingest_fundamentals(sf, symbols)
+    log.info(msg)
+    return msg
+
+
+def run_universe_load() -> str:
+    """Carga constituyentes históricos: python -m app.jobs universe-load archivo.csv"""
+    from app.universe import load_universe_csv
+
+    if len(sys.argv) < 3:
+        return "Uso: python -m app.jobs universe-load <archivo.csv>"
+    msg = load_universe_csv(_session_factory(), sys.argv[2])
+    log.info(msg)
+    return msg
+
+
 def run_daily() -> None:
+    from app.brokers.factory import make_adapter
     from app.config import get_settings
+    from app.trade import snapshot_portfolio
 
     ingest_result = run_ingest()
     run_fx()
     run_report()
     if get_settings().execution_enabled:
-        run_trade()  # fase 4: propone Y ejecuta
+        run_exits()  # primero proteger lo que hay...
+        run_trade()  # ...después decidir lo nuevo
     else:
         run_propose()  # fase 3: solo propone
+    try:
+        sf = _session_factory()
+        snapshot_portfolio(sf, make_adapter(sf))
+    except Exception:
+        log.exception("No se pudo tomar el snapshot del portafolio")
     log.info("Ciclo diario completo (%s)", ingest_result)
 
 
@@ -149,6 +201,9 @@ def main() -> None:
         "backtest": run_backtest_job,
         "propose": run_propose,
         "trade": run_trade,
+        "exits": run_exits,
+        "fundamentals": run_fundamentals,
+        "universe-load": run_universe_load,
     }
     name = sys.argv[1] if len(sys.argv) > 1 else ""
     job = commands.get(name)

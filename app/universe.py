@@ -26,6 +26,36 @@ DEFAULT_UNIVERSE = [
 ]
 
 
+def load_universe_csv(session_factory: sessionmaker[Session], path: str) -> str:
+    """Carga constituyentes históricos desde CSV: symbol,valid_from[,valid_to].
+
+    Reemplaza la tabla completa. Con esto el backtest deja de tener
+    survivorship bias (la máscara point-in-time se activa sola).
+    """
+    import csv
+    from datetime import date as date_type
+
+    rows = []
+    with open(path, encoding="utf-8") as fh:
+        for record in csv.DictReader(fh):
+            valid_to = (record.get("valid_to") or "").strip()
+            rows.append(
+                UniverseMember(
+                    symbol=record["symbol"].strip().upper(),
+                    valid_from=date_type.fromisoformat(record["valid_from"].strip()),
+                    valid_to=date_type.fromisoformat(valid_to) if valid_to else None,
+                )
+            )
+    if not rows:
+        return "CSV vacío: no se cargó nada"
+    with session_factory() as s:
+        for old in s.scalars(select(UniverseMember)).all():
+            s.delete(old)
+        s.add_all(rows)
+        s.commit()
+    return f"Universo histórico cargado: {len(rows)} vigencias"
+
+
 def ensure_universe(session_factory: sessionmaker[Session]) -> list[str]:
     """Siembra el universo si la tabla está vacía; devuelve los símbolos vigentes."""
     today = datetime.now(UTC).date()

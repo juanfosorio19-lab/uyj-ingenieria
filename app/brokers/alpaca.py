@@ -55,6 +55,7 @@ class AlpacaAdapter:
                 symbol=p["symbol"],
                 qty=Decimal(p["qty"]),
                 avg_price_usd=Decimal(p["avg_entry_price"]),
+                current_price_usd=Decimal(p["current_price"]) if p.get("current_price") else None,
             )
             for p in response.json()
         ]

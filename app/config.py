@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     alpaca_secret_key: str = ""
     alpaca_base_url: str = "https://paper-api.alpaca.markets"  # paper; live es deliberado
     execution_enabled: bool = False  # True => el ciclo diario EJECUTA (fase 4)
+    sec_user_agent: str = "trading-agent (configura SEC_USER_AGENT con tu email)"
 
 
 @lru_cache
