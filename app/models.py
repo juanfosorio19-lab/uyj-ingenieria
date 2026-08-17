@@ -9,7 +9,17 @@ después es tarde.
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
-from sqlalchemy import JSON, Date, DateTime, ForeignKey, Numeric, String, Text
+from sqlalchemy import (
+    JSON,
+    BigInteger,
+    Date,
+    DateTime,
+    ForeignKey,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -96,6 +106,38 @@ class TaxLotClosing(Base):
     realized_gain_usd: Mapped[Decimal] = mapped_column(Numeric(18, 2))
     realized_gain_clp: Mapped[Decimal | None] = mapped_column(Numeric(18, 0), nullable=True)
     holding_days: Mapped[int] = mapped_column()
+
+
+class PriceBar(Base):
+    """OHLCV diario por símbolo (fase 1)."""
+
+    __tablename__ = "prices"
+    __table_args__ = (UniqueConstraint("symbol", "date", name="uq_prices_symbol_date"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    symbol: Mapped[str] = mapped_column(String(12), index=True)
+    date: Mapped[date] = mapped_column(Date, index=True)
+    open: Mapped[Decimal] = mapped_column(Numeric(18, 6))
+    high: Mapped[Decimal] = mapped_column(Numeric(18, 6))
+    low: Mapped[Decimal] = mapped_column(Numeric(18, 6))
+    close: Mapped[Decimal] = mapped_column(Numeric(18, 6))
+    volume: Mapped[int] = mapped_column(BigInteger, default=0)
+
+
+class UniverseMember(Base):
+    """Universo de símbolos con vigencia (point-in-time).
+
+    `valid_from`/`valid_to` permiten reconstruir el universo en cualquier
+    fecha. TODO fase 2: cargar constituyentes históricos reales antes del
+    backtest (la lista sembrada parte hoy, no sirve para mirar el pasado).
+    """
+
+    __tablename__ = "universe"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    symbol: Mapped[str] = mapped_column(String(12), index=True)
+    valid_from: Mapped[date] = mapped_column(Date)
+    valid_to: Mapped[date | None] = mapped_column(Date, nullable=True)
 
 
 class FxRate(Base):

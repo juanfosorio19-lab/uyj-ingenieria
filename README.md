@@ -61,8 +61,22 @@ python3.12 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 .venv/bin/python -m app.telegram_bot               # bot
 ```
 
+### Fase 1: datos que llegan solos
+
+```powershell
+.venv\Scripts\python -m app.jobs ingest    # backfill 3 años, 51 símbolos (primera vez: minutos)
+.venv\Scripts\python -m app.jobs fx        # dólar observado del día (mindicador.cl)
+.venv\Scripts\python -m app.jobs report    # arma el resumen y lo manda a tu Telegram
+.venv\Scripts\python -m app.jobs daily     # los tres en orden
+.venv\Scripts\python -m app.scheduler      # queda corriendo: días hábiles 16:45 NY, solo
+```
+
+(En Mac/Linux: `.venv/bin/python -m app.jobs daily`.) Con Docker, el servicio `scheduler` del compose hace esto solo.
+
 ## Estado
 
-**Fase 0 construida** ✅ — esqueleto vivo: Postgres + FastAPI + bot de Telegram + `PaperAdapter` con idempotencia, kill switch y lotes tributarios FIFO desde la primera compra simulada. 10 tests en verde + CI en GitHub Actions.
+**Fase 0 cerrada** ✅ — validada en el PC de Juan: API + bot de Telegram respondiendo, kill switch probado.
 
-Pendiente para cerrar la fase (lo haces tú, ~10 min): correr `docker compose up` en tu máquina y probar `/status` y `/buy` desde tu Telegram. Siguiente: **Fase 1 — datos que llegan solos**.
+**Fase 1 construida** ⏳ — ingesta OHLCV incremental e idempotente (yfinance, 50 símbolos + SPY), universo con vigencias point-in-time, dólar observado (mindicador.cl) para el ledger tributario, reporte diario con top movers/benchmark/salud de ingesta enviado a Telegram, y scheduler acotado a días hábiles post-cierre NYSE. 17 tests en verde.
+
+Criterio de salida de la fase 1: **7 días corridos de ingesta sin intervención y sin huecos silenciosos.** Pendiente: correr `python -m app.jobs daily` la primera vez y dejar el scheduler activo.
