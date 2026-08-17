@@ -25,7 +25,7 @@ def parse_mindicador(payload: dict) -> tuple[date, Decimal] | None:
     if not serie:
         return None
     first = serie[0]
-    day = datetime.fromisoformat(first["fecha"].replace("Z", "+00:00")).date()
+    day = datetime.fromisoformat(first["fecha"]).date()
     return day, Decimal(str(first["valor"]))
 
 
