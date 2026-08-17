@@ -16,6 +16,7 @@ from app.jobs import run_daily
 from app.market_hours import NYSE_TZ
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+logging.getLogger("httpx").setLevel(logging.WARNING)  # sus INFO imprimen URLs con el token del bot
 log = logging.getLogger(__name__)
 
 RUN_AT = time(16, 45)  # 45 min después del cierre, hora de Nueva York

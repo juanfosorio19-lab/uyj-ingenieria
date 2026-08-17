@@ -16,6 +16,7 @@ from app.report import build_daily_report, send_telegram_message
 from app.universe import ensure_universe
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+logging.getLogger("httpx").setLevel(logging.WARNING)  # sus INFO imprimen URLs con el token del bot
 log = logging.getLogger(__name__)
 
 
