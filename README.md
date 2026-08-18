@@ -11,6 +11,7 @@ Sistema automatizado de inversión en acciones USA: datos de mercado → scoring
 | [docs/COSTOS.md](docs/COSTOS.md) | Cuánto cuesta operar el agente, por fase, con números reales |
 | [docs/PLAN-FASES.md](docs/PLAN-FASES.md) | Plan de ejecución en 7 fases, cada una con algo visible al terminar |
 | [docs/IMPUESTOS-CHILE.md](docs/IMPUESTOS-CHILE.md) | Simulación de impuestos en Chile: tramos, escenarios y calendario |
+| [docs/META-INGRESO.md](docs/META-INGRESO.md) | La meta de ingreso mensual: cuánto capital exige y la regla de retiro |
 | [docs/plan-original.md](docs/plan-original.md) | El plan de ingeniería original (análisis de bloqueadores, arquitectura, seguridad) |
 
 ## Resumen en 30 segundos
