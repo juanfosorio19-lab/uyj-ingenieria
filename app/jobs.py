@@ -177,6 +177,27 @@ def run_universe_load() -> str:
     return msg
 
 
+def run_experiment_chase() -> str:
+    """Backtestea 'comprar el mayor ganador de ayer' contra SPY, con costos."""
+    from app.backtest import load_close_matrix
+    from app.experiments import chase_backtest
+    from app.report import send_telegram_message
+
+    sf = _session_factory()
+    closes = load_close_matrix(sf)
+    if closes.empty:
+        return "No hay precios. Corre primero: python -m app.jobs ingest"
+    try:
+        result = chase_backtest(closes)
+    except ValueError as exc:
+        log.error("Experimento no ejecutable: %s", exc)
+        return str(exc)
+    text = result.summary()
+    send_telegram_message(text)
+    log.info("Experimento chase enviado")
+    return text
+
+
 def run_daily() -> None:
     from app.brokers.factory import make_adapter
     from app.config import get_settings
@@ -210,6 +231,7 @@ def main() -> None:
         "exits": run_exits,
         "fundamentals": run_fundamentals,
         "universe-load": run_universe_load,
+        "experiment-chase": run_experiment_chase,
     }
     name = sys.argv[1] if len(sys.argv) > 1 else ""
     job = commands.get(name)
