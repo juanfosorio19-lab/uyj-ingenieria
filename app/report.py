@@ -22,7 +22,7 @@ def _pct(new: Decimal, old: Decimal) -> Decimal:
     return (new - old) / old * 100
 
 
-def build_daily_report(session_factory: sessionmaker[Session]) -> str:
+def build_daily_report(session_factory: sessionmaker[Session], adapter=None) -> str:
     with session_factory() as s:
         last_date = s.scalar(select(func.max(PriceBar.date)))
         if last_date is None:
@@ -61,13 +61,15 @@ def build_daily_report(session_factory: sessionmaker[Session]) -> str:
     if benchmark:
         lines.append(f"🎯 {BENCHMARK}: {benchmark[1]:+.1f}%")
 
-    adapter = PaperAdapter(session_factory)
+    adapter = adapter or PaperAdapter(session_factory)
     positions = adapter.get_positions()
     if positions:
         detail = ", ".join(f"{p.symbol} {p.qty:g}" for p in positions)
-        lines.append(f"💼 Caja USD {adapter.get_cash():,.2f} · Posiciones: {detail}")
+        lines.append(
+            f"💼 [{adapter.name}] Caja USD {adapter.get_cash():,.2f} · Posiciones: {detail}"
+        )
     else:
-        lines.append(f"💼 Caja USD {adapter.get_cash():,.2f} · sin posiciones")
+        lines.append(f"💼 [{adapter.name}] Caja USD {adapter.get_cash():,.2f} · sin posiciones")
 
     with session_factory() as s:
         fx = s.scalar(select(FxRate).order_by(FxRate.date.desc()).limit(1))

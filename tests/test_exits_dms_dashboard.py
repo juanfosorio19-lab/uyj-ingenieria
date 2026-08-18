@@ -21,18 +21,19 @@ def pos(symbol="WIN", qty="10", entry="100") -> PositionInfo:
     return PositionInfo(symbol=symbol, qty=Decimal(qty), avg_price_usd=Decimal(entry))
 
 
+TODAY = date(2026, 8, 17)
+_TODAY_DT = datetime(2026, 8, 17, 12, 0, tzinfo=UTC)
+
+
 def thesis(days_ago=10, horizon=60, invalidators=None) -> Thesis:
     return Thesis(
         symbol="WIN",
         thesis="tesis de prueba",
         invalidators=invalidators or [],
         target_horizon_days=horizon,
-        created_at=datetime.now(UTC) - timedelta(days=days_ago),
+        created_at=_TODAY_DT - timedelta(days=days_ago),  # determinista, no usa el reloj real
         status="open",
     )
-
-
-TODAY = date(2026, 8, 17)
 PV = Decimal(10000)
 
 

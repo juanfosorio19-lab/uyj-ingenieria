@@ -97,12 +97,12 @@ def test_alpaca_respects_kill_switch_before_network(engine):
     assert fake.order_posts == 0  # jamás llegó a la red
 
 
-def test_reconcile_divergence_halts_system(engine):
+def test_reconcile_unexplained_divergence_halts_system(engine):
     fake = FakeAlpaca()
     fake.positions = [{"symbol": "AAPL", "qty": "10", "avg_entry_price": "200"}]
     adapter = make_alpaca(engine, fake)
     sf = make_session_factory(engine)
-    # local dice otra cosa: divergencia
+    # local dice otra cosa y NO hay ninguna orden nuestra que lo explique
     with Session(engine) as s:
         s.add(Position(symbol="AAPL", qty=3, avg_price_usd=200))
         s.commit()
@@ -112,6 +112,35 @@ def test_reconcile_divergence_halts_system(engine):
     with Session(engine) as s:
         rec = s.scalars(select(Reconciliation)).one()
         assert rec.status == "divergent"
+
+
+def test_reconcile_heals_fill_lag(engine):
+    """El caso real del 17-08: orden puesta, fill posterior al sync => sanar solo."""
+    from decimal import Decimal
+
+    fake = FakeAlpaca()
+    adapter = make_alpaca(engine, fake)
+    sf = make_session_factory(engine)
+
+    # el agente compró (queda orden local "accepted"); el sync corrió ANTES del fill
+    adapter.place_order("AMD", "buy", Decimal("15.6724"), "trade-2026-08-17-AMD-buy")
+    sync_positions(sf, adapter)  # broker aún sin posición => espejo local vacío
+
+    # ...y después Alpaca llena la orden
+    fake.positions = [{"symbol": "AMD", "qty": "15.6724", "avg_entry_price": "170"}]
+    fake.orders["trade-2026-08-17-AMD-buy"]["status"] = "filled"
+
+    assert reconcile(sf, adapter) is True  # divergencia EXPLICADA: no hay HALT
+    assert orders_enabled(sf) is True
+    with Session(engine) as s:
+        recs = s.scalars(select(Reconciliation).order_by(Reconciliation.id)).all()
+        assert recs[-1].status == "healed"
+        local = s.scalars(select(Position)).one()
+        assert local.symbol == "AMD"  # espejo re-sincronizado desde el broker
+        from app.models import Order
+
+        order = s.scalars(select(Order)).one()
+        assert order.status == "filled"  # estado refrescado desde Alpaca
 
 
 def test_sync_positions_mirrors_broker(engine):

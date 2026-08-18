@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.brokers.base import OrderRejected
 from app.controls import heartbeat_age_seconds, set_orders_enabled
 from app.llm.analyst import AnalystClient, analyze
-from app.models import PortfolioSnapshot, Position, PriceBar, Reconciliation
+from app.models import Order, PortfolioSnapshot, Position, PriceBar, Reconciliation
 from app.risk import evaluate_from_db
 
 log = logging.getLogger(__name__)
@@ -25,7 +25,14 @@ DMS_MAX_AGE_SECONDS = 45 * 60  # el monitor late cada 15 min; 45 min sin latido 
 
 
 def reconcile(session_factory: sessionmaker[Session], adapter) -> bool:
-    """Compara broker vs estado local. Divergencia => HALT automático."""
+    """Compara broker vs estado local.
+
+    - Divergencia EXPLICADA (hay órdenes nuestras sobre esos símbolos, p. ej.
+      un fill que llegó después de sincronizar) => se auto-sana: re-sincroniza
+      desde el broker, refresca estados de órdenes y sigue.
+    - Divergencia INEXPLICADA => HALT automático + alerta. Nunca se opera
+      sobre estado local asumido.
+    """
     broker_positions = {p.symbol: float(p.qty) for p in adapter.get_positions()}
     with session_factory() as s:
         local_positions = {
@@ -33,33 +40,71 @@ def reconcile(session_factory: sessionmaker[Session], adapter) -> bool:
         }
 
     if adapter.name == "paper":
-        ok = True  # paper comparte la misma base: no puede divergir
+        diverging: list[str] = []  # paper comparte la misma base: no puede divergir
     else:
         symbols = set(broker_positions) | set(local_positions)
-        ok = all(
-            abs(broker_positions.get(sym, 0.0) - local_positions.get(sym, 0.0))
-            <= QTY_TOLERANCE
+        diverging = sorted(
+            sym
             for sym in symbols
+            if abs(broker_positions.get(sym, 0.0) - local_positions.get(sym, 0.0))
+            > QTY_TOLERANCE
         )
+
+    status = "ok"
+    if diverging:
+        with session_factory() as s:
+            known = {
+                o.symbol
+                for o in s.scalars(select(Order).where(Order.symbol.in_(diverging)))
+            }
+        if all(sym in known for sym in diverging):
+            status = "healed"
+            _refresh_order_statuses(session_factory, adapter, diverging)
+            sync_positions(session_factory, adapter)
+            log.info("Reconciliación auto-sanada (fills pendientes): %s", diverging)
+        else:
+            status = "divergent"
 
     with session_factory() as s:
         s.add(
             Reconciliation(
                 broker=adapter.name,
-                status="ok" if ok else "divergent",
-                details={"broker": broker_positions, "local": local_positions},
+                status=status,
+                details={"broker": broker_positions, "local": local_positions,
+                         "diverging": diverging},
             )
         )
         s.commit()
 
-    if not ok:
+    if status == "divergent":
         set_orders_enabled(
             session_factory, False, actor="reconciliation",
-            reason=f"divergencia broker({adapter.name}) vs local",
+            reason=f"divergencia inexplicada broker({adapter.name}) vs local: {diverging}",
         )
         log.error("Reconciliación divergente: HALT. broker=%s local=%s",
                   broker_positions, local_positions)
-    return ok
+        return False
+    return True
+
+
+def _refresh_order_statuses(
+    session_factory: sessionmaker[Session], adapter, symbols: list[str]
+) -> None:
+    """Actualiza el estado local de órdenes no terminales (accepted → filled)."""
+    terminal = {"filled", "canceled", "rejected", "expired"}
+    with session_factory() as s:
+        rows = s.scalars(
+            select(Order).where(Order.symbol.in_(symbols), Order.status.notin_(terminal))
+        ).all()
+        for row in rows:
+            try:
+                new_status = adapter.get_order_status(row.client_order_id)
+            except Exception:
+                log.exception("No se pudo refrescar la orden %s", row.client_order_id)
+                continue
+            if new_status:
+                row.status = new_status[:16]
+        s.commit()
 
 
 def sync_positions(session_factory: sessionmaker[Session], adapter) -> None:

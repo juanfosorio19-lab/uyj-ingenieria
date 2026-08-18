@@ -114,9 +114,10 @@ def build_dashboard_html(session_factory: sessionmaker[Session]) -> str:
         f"<td>{Decimal(o.qty):g}</td><td>{o.status}</td></tr>"
         for o in orders
     )
+    recon_labels = {"ok": "✅ ok", "healed": "🔧 auto-sanada", "divergent": "🛑 DIVERGENTE"}
     recons_html = "".join(
         f"<tr><td>{r.ts:%m-%d %H:%M}</td><td>{r.broker}</td>"
-        f"<td>{'✅ ok' if r.status == 'ok' else '🛑 DIVERGENTE'}</td></tr>"
+        f"<td>{recon_labels.get(r.status, r.status)}</td></tr>"
         for r in recons
     )
 

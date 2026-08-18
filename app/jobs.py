@@ -44,8 +44,14 @@ def run_fx() -> str:
 
 
 def run_report() -> str:
+    from app.brokers.factory import make_adapter
+
     sf = _session_factory()
-    text = build_daily_report(sf)
+    try:
+        adapter = make_adapter(sf)
+    except RuntimeError:  # BROKER=alpaca sin keys: el reporte usa el paper interno
+        adapter = None
+    text = build_daily_report(sf, adapter=adapter)
     sent = send_telegram_message(text)
     log.info("Reporte %s", "enviado a Telegram" if sent else "impreso en consola")
     return text
